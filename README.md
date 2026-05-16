@@ -1,7 +1,7 @@
 #  Urban Flood Monitoring and Response Planning
 
 ## Git repo:
-https://github.com/RDT556/FloodSight
+https://github.com/vedp9984/Duracell
 ## Dataset drive link:
  https://drive.google.com/drive/folders/1LE1PaOYxpbxzUULtvMvNBMc1rcWdfMIx?usp=sharing
 ## 1. System Purpose

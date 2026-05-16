@@ -18,12 +18,13 @@ Date: 2024
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, RedirectResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, text
 from typing import List, Optional
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
+from contextlib import asynccontextmanager
 import json
 import asyncio
 import os
@@ -32,7 +33,6 @@ import numpy as np
 import rasterio
 from rasterio.warp import transform_bounds
 from matplotlib import pyplot as plt
-from fastapi.responses import Response, FileResponse, JSONResponse
 
 # Local imports
 from .database import get_db, engine, Base, SessionLocal
@@ -123,6 +123,44 @@ class CurrentStatus(BaseModel):
 # FASTAPI APPLICATION
 # ============================================================================
 
+# Resolve absolute path to frontend directory (works regardless of cwd)
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_FRONTEND_DIR = os.path.join(_BASE_DIR, "frontend")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize and teardown application resources."""
+    # ---- startup ----
+    print("=" * 60)
+    print("[FLOOD DAS] FLOOD DATA ACQUISITION SYSTEM - STARTING")
+    print("=" * 60)
+
+    Base.metadata.create_all(bind=engine)
+    print("[OK] Database tables initialized")
+
+    try:
+        db = SessionLocal()
+        db.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
+        db.commit()
+        db.close()
+        print("[OK] PostGIS extension enabled")
+    except Exception as e:
+        print(f"[INFO] PostGIS setup note (SQLite default is fine): {e}")
+
+    risk_classification.initialize()
+    print("[OK] Risk classification module initialized")
+
+    _port = os.getenv("PORT", "8000")
+    print("=" * 60)
+    print(f"[READY] System ready at http://localhost:{_port}")
+    print(f"[DOCS]  API docs at http://localhost:{_port}/docs")
+    print("=" * 60)
+
+    yield  # application runs here
+    # ---- shutdown (nothing needed) ----
+
+
 app = FastAPI(
     title="Flood Data Acquisition System (DAS)",
     description="""
@@ -142,16 +180,23 @@ app = FastAPI(
     * Wards: Kukatpally, Miyapur, KPHB, Sanath Nagar, Chintal, etc.
     """,
     version="1.0.0",
+    lifespan=lifespan,
     contact={
         "name": "Flood DAS Support",
-        "email": "support@flooddas.local"
+        "email": "support@flooddas.com"
     }
 )
 
-# CORS middleware for frontend access
+# CORS middleware — restrict origins in production via CORS_ORIGINS env var
+_cors_origins_raw = os.getenv("CORS_ORIGINS", "*")
+_CORS_ORIGINS: list = (
+    ["*"] if _cors_origins_raw.strip() == "*"
+    else [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -249,55 +294,20 @@ def sync_active_alerts_from_latest(db: Session) -> None:
     )
 
 
-# ============================================================================
-# STARTUP & SHUTDOWN EVENTS
-# ============================================================================
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database on startup"""
-    print("=" * 60)
-    print("🌊 FLOOD DATA ACQUISITION SYSTEM - STARTING")
-    print("=" * 60)
-
-    # Create tables
-    Base.metadata.create_all(bind=engine)
-    print("✓ Database tables initialized")
-
-    # Try to enable PostGIS
-    try:
-        db = SessionLocal()
-        db.execute(text("CREATE EXTENSION IF NOT EXISTS postgis;"))
-        db.commit()
-        db.close()
-        print("✓ PostGIS extension enabled")
-    except Exception as e:
-        print(f"⚠ PostGIS setup note: {e}")
-
-    # Pre-compute static vulnerability scores and basin-ward mapping
-    risk_classification.initialize()
-    print("✓ Risk classification module initialized")
-
-    print("=" * 60)
-    print("🚀 System ready at http://localhost:8000")
-    print("📊 API docs at http://localhost:8000/docs")
-    print("=" * 60)
+# Startup logic moved into lifespan() context manager above.
 
 
 # ============================================================================
 # API ENDPOINTS
 # ============================================================================
 
-from fastapi.responses import RedirectResponse
-
 @app.get("/", tags=["Root"])
 async def root():
     """Redirect to dashboard"""
     return RedirectResponse(url="/frontend/index.html")
 
-# Mount Static Files
-# Frontend files (HTML, JS, CSS)
-app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
+# Mount Static Files — uses absolute path so it works from any cwd
+app.mount("/frontend", StaticFiles(directory=_FRONTEND_DIR), name="frontend")
 
 
 @app.get("/catchment_info", tags=["Info"])

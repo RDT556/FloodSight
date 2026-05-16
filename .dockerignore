@@ -1,0 +1,44 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Environment & secrets
+.env
+.env.*
+
+# Database (re-created on startup)
+*.db
+*.db-shm
+*.db-wal
+
+# Dataset — large raw GIS files not needed at runtime
+dataset/
+
+# OSM buildings cache (regenerated at runtime)
+geojson/cache/
+
+# Git
+.git/
+.gitignore
+
+# IDE / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# QGIS project files
+*.qgz
+*.qgs
+
+# Docs / scripts not needed in image
+create_layers.py
+extract_gpkg.py
+README.md

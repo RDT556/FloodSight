@@ -1,3 +1,37 @@
-.venv
-venv
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Environment & secrets
+.env
+.env.*
+
+# Database (re-created on startup; use Docker volume in production)
 *.db
+*.db-shm
+*.db-wal
+
+# OSM buildings cache (regenerated at runtime by osm_client.py)
+geojson/cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+*.DS_Store
+Thumbs.db
+
+# QGIS project files
+*.qgz
+*.qgs

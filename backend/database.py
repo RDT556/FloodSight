@@ -16,12 +16,15 @@ DATABASE_URL = os.getenv(
     "sqlite:///./flood_das.db"
 )
 
+# SQL query logging — disabled by default; set ECHO_SQL=true to enable (dev only)
+_ECHO_SQL = os.getenv("ECHO_SQL", "false").lower() == "true"
+
 # Create SQLAlchemy engine
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 
 engine = create_engine(
     DATABASE_URL,
-    echo=True,
+    echo=_ECHO_SQL,
     pool_pre_ping=True,
     connect_args=connect_args
 )

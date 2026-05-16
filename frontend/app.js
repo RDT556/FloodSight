@@ -6,7 +6,7 @@
 // Configuration
 const CONFIG = {
     API_URL: window.location.origin,
-    WS_URL: `ws://${window.location.host}/ws`,
+    WS_URL: `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`,
     UPDATE_INTERVAL: 5000,
     MAP_CENTER: [17.4898, 78.4340],
     MAP_ZOOM: 12
